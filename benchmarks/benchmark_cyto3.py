@@ -15,14 +15,13 @@ import statistics
 import subprocess
 import sys
 import time
-from types import SimpleNamespace
 
 import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from cellpose import dynamics, io, models, transforms
+from cellpose import dynamics, io, models
 
 
 def reference_functions(revision):
@@ -112,8 +111,6 @@ def main():
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--threads", type=int, default=8)
-    parser.add_argument("--fastcellpose-source", type=Path,
-                        help="Also audit the original BLUE wrapper (FP32 and FP16)")
     args = parser.parse_args()
     if args.repeats < 1 or args.warmup < 1:
         parser.error("repeats and warmup must both be positive")
@@ -184,29 +181,6 @@ def main():
             row["speedup"] = statistics.median(row["reference_seconds"]) / statistics.median(row["candidate_seconds"])
             all_exact &= (row["reference_stable"] and row["masks_exact_all_repeats"] and
                           row["flows_exact_all_repeats"] and row["styles_exact_all_repeats"])
-            if args.fastcellpose_source:
-                sys.path.insert(0, str(args.fastcellpose_source.resolve()))
-                from fast_cellpose import FastCellpose
-                gray = transforms.convert_image(image, channels=[0, 0], nchan=2)[..., :1]
-                frames = [SimpleNamespace(image=gray)]
-                row["original_wrapper"] = []
-                for fp16 in (False, True):
-                    wrapper = FastCellpose(model.pretrained_model, device, diameter=diameter,
-                        fp16=fp16, flow_threshold=.4, min_size=15, skip_empty_tiles=False,
-                        bgr_idx=None, dapi_only=True)
-                    for _ in range(args.warmup):
-                        wrapper.segment_chunk(frames, clear_edges=False)
-                    durations = []
-                    comparisons = []
-                    for _ in range(args.repeats):
-                        masks, elapsed, _ = timed(lambda: wrapper.segment_chunk(frames, clear_edges=False), device)
-                        durations.append(elapsed)
-                        comparisons.append(comparison(baseline[0], masks[0]))
-                    row["original_wrapper"].append({"fp16": fp16, "seconds": durations,
-                        "speedup": statistics.median(row["reference_seconds"]) / statistics.median(durations),
-                        "exact_all_repeats": all(c["exact"] for c in comparisons),
-                        **comparison(baseline[0], masks[0])})
-                    del wrapper
             report["results"].append(row)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(report, indent=2) + "\n")

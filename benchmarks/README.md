@@ -66,51 +66,23 @@ Edition, PyTorch 2.9.1+cu128, and eight CPU threads. Other GPU jobs were active;
 these are indicative measurements on shared hardware. No cross-device bitwise
 guarantee or extrapolation to other hardware is claimed.
 
-The original BLUE `pipeline/src/fast_cellpose.py` wrapper was also audited with:
+PR figures (public test fixtures):
+
+![cyto3 total inference latency and speedup](figures/cyto3_inference.png)
+
+The left panel shows median full-inference latency and the change in milliseconds.
+The right panel shows the ratio of median reference time to median optimized time.
+Whiskers are observed repeat ranges, not confidence intervals. GPU load was shared.
+[SVG](figures/cyto3_inference.svg) · [PDF](figures/cyto3_inference.pdf) ·
+[Numerical summary](figures/cyto3_inference_summary.csv)
+
+Regenerate these figures with NumPy and Matplotlib installed:
 
 ```bash
-python benchmarks/benchmark_cyto3.py \
-  --images /path/to/image.png --output /tmp/cyto3-wrapper.json \
-  --fastcellpose-source /path/to/BLUE-pipeline/pipeline/src
+python benchmarks/plot_benchmarks.py --kind cyto3 \
+  --report benchmarks/results/public-rtx-pro-6000.json \
+  --output-dir benchmarks/figures
 ```
-
-For that diagnostic, both paths receive the same grayscale channel mixture; the
-wrapper receives it precomputed outside its timed call. It uses batch size 128,
-flow threshold 0.4, minimum size 15, no empty tile skipping, no edge clearing,
-and both FP32 and FP16. It is measured one image at a time; these numbers do not
-measure its multi-image chunk throughput. Every public case failed exact equality
-in both precision modes, and the partitions differed even after ignoring label
-IDs. Its larger speedup therefore cannot support an exact-mask contribution.
-
-The original wrapper's speed sources and their equivalence constraints are:
-
-| Change in the BLUE wrapper | Constraint for exact upstream output |
-| --- | --- |
-| Reuse pinned buffers and asynchronous upload | Keep input bytes and stream lifetimes correct |
-| GPU percentiles and channel mixing | Match NumPy normalization and channel semantics exactly |
-| GPU bilinear resizing | Match OpenCV pixels and upstream output dimensions |
-| `unfold`/`fold` tiling and tapering | Match upstream zero padding, tile coordinates and accumulation order |
-| Larger tile batches across images | Verify numerical effects of changed network batch sizes |
-| FP16 network inference | Changes network precision; excluded from this exact patch |
-| Skip empty tiles | Zero-valued input can produce nonzero network output |
-| Batched dynamics | Preserve upstream per-coordinate arithmetic and point ordering |
-| Vectorized seed windows, pooling and label assignment | Included here with upstream truncation, seed ordering and renumbering |
-| GPU flow error reduction | Floating point reduction order can change threshold decisions |
-| Disable flow QC or change iteration counts | Changes mask selection or integration |
-| Custom mask cleanup and edge removal | Upstream fills holes and has different default cleanup |
-
-Specific existing discrepancies include endpoint rounding in the wrapper versus
-integer truncation upstream, regular overlapping tiles and reflective padding
-versus upstream tile coordinates and zero padding, custom small-mask filtering
-without upstream hole filling, and a minimum of 32 integration steps. Disabling
-FP16 alone cannot resolve these differences. The old validation harness reports
-IoU and feature differences rather than exact mask bytes; its warmup and input
-preparation also differ between paths, and its per-stage host timers do not
-synchronize asynchronous GPU work.
-
-The contribution port intentionally keeps the upstream operations surrounding
-the exact dynamics optimizations. BLUE's runtime wrapper remains a separate
-implementation; these results do not establish its bitwise equivalence.
 
 Measured medians in milliseconds (all candidate masks exact in all five repeats):
 
@@ -122,17 +94,17 @@ Measured medians in milliseconds (all candidate masks exact in all five repeats)
 | gray_2D.png | 15 | 469.7 | 430.6 | 1.09x |
 | rgb_2D.png | 15 | 214.2 | 195.4 | 1.10x |
 | rgb_2D_tif.tif | 15 | 216.4 | 187.0 | 1.16x |
-| local-1 | 30 | 823.3 | 396.2 | 2.08x |
-| local-2 | 30 | 902.7 | 453.7 | 1.99x |
-| local-3 | 30 | 627.5 | 436.6 | 1.44x |
-| local-1 | 15 | 2267.6 | 1159.6 | 1.96x |
-| local-2 | 15 | 2504.6 | 1180.1 | 2.12x |
-| local-3 | 15 | 2228.8 | 1117.2 | 2.00x |
+| Microscopy A | 30 | 823.3 | 396.2 | 2.08x |
+| Microscopy B | 30 | 902.7 | 453.7 | 1.99x |
+| Microscopy C | 30 | 627.5 | 436.6 | 1.44x |
+| Microscopy A | 15 | 2267.6 | 1159.6 | 1.96x |
+| Microscopy B | 15 | 2504.6 | 1180.1 | 2.12x |
+| Microscopy C | 15 | 2228.8 | 1117.2 | 2.00x |
 
-Local inputs were three 1004 x 1362 uint16 RGB microscopy images. Their raw files
-and detailed reports remain in the local workspace. Shared raw public measurements
+Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
+These supplemental image files are not distributed. Public measurements
 are in [results/public-rtx-pro-6000.json](results/public-rtx-pro-6000.json).
 
 Public fixtures: total of the per-case median latencies improves by 1.20x.
 
-Local images: total of the per-case median latencies improves by 1.97x.
+Supplemental microscopy: total of the per-case median latencies improves by 1.97x.
