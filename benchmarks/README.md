@@ -1,3 +1,25 @@
+# Cellpose-SAM inference benchmarks
+
+## Figure index
+
+View these on the **`fast-sam-inference` branch**. The `fast-cyto3-inference`
+branch contains Cellpose 3 results.
+
+| Result | Plot |
+| --- | --- |
+| 3D volume: total inference time | [3D total-time plot](figures/sam_3d_inference.png) |
+| 3D volume: mask construction speedup | [3D timing breakdown](figures/sam_3d_mask_effect.png) |
+| 2D public images: object and foreground IoU | [Standalone public IoU plot](figures/sam_2d_iou_public.png) |
+| 2D larger images: object and foreground IoU | [Standalone supplemental IoU plot](figures/sam_2d_iou_supplemental.png) |
+| 2D resized images: object and foreground IoU | [Standalone resized IoU plot](figures/sam_2d_iou_scaled.png) |
+| 2D public images: full time and mask agreement | [Inference options plot](figures/sam_fast_inference.png) |
+
+See the [figure gallery](figures/README.md) for previews and SVG/PDF downloads.
+The 3D plots measure the exact optimization; optional FP16 fast mode supports
+unaugmented CUDA 2D inference and falls back to standard inference for 3D.
+
+## Exact dynamics optimization
+
 This contribution targets current Cellpose **main**, based on
 `a54cb48849b7e225a81e8e43dcb042d42427f543`. It optimizes shared mask dynamics used
 by Cellpose-SAM and the other current model backbones.
@@ -290,6 +312,8 @@ python benchmarks/benchmark_fast.py \
   --output /tmp/sam-fast-public.json
 python benchmarks/plot_fast.py --report /tmp/sam-fast-public.json \
   --output-dir /tmp/sam-fast-figures
+python benchmarks/plot_iou.py --report /tmp/sam-fast-public.json \
+  --output-dir /tmp/sam-fast-figures --name sam_2d_iou_public
 # Exercise GPU input/output resizing with a 15-pixel requested cell diameter:
 python benchmarks/benchmark_fast.py --diameters 15 \
   --images /tmp/cellpose-fixtures/data/2D/gray_2D.png \
