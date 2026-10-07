@@ -1,3 +1,9 @@
+# Cellpose 3 inference benchmarks
+
+For Cellpose-SAM **3D timing plots and standalone IoU plots**, see the
+[SAM figure gallery on the fast-sam-inference branch](https://github.com/dean-tessone/cellpose/blob/fast-sam-inference/benchmarks/figures/README.md).
+This branch contains the cyto3 2D inference measurements.
+
 This contribution targets MouseLand/cellpose's `cp3` branch, currently the same
 commit as `v3.1.1.3` (`e6eec1537501436c48a2c75d23f2aa61f8d715fd`). It accelerates
 cyto3 mask dynamics through the existing `CellposeModel.eval` API.
