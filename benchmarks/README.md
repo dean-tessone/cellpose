@@ -4,7 +4,7 @@
 | --- | --- |
 | [Full inference time](figures/cyto3_inference.png) | Measured latency and speedup |
 | [Identical cell masks](figures/cyto3_identical_masks.png) | Input, upstream masks, optimized masks and pixel differences |
-| [Mask IoU and byte equality](figures/cyto3_mask_iou.png) | Cell/foreground IoU = 1.0000 and zero changed labels across six public cases |
+| [Mask IoU and byte equality](figures/cyto3_mask_iou.png) | Cell/foreground IoU = 1.0000 and zero changed labels across six public and two Microscopy A cases |
 
 For Cellpose-SAM **3D timing plots and standalone IoU plots**, see the
 [SAM figure gallery on the fast-sam-inference branch](https://github.com/dean-tessone/cellpose/blob/fast-sam-inference/benchmarks/figures/README.md).
@@ -100,7 +100,11 @@ python benchmarks/plot_benchmarks.py --kind cyto3 \
 
 ![Upstream and optimized cell masks with label difference maps](figures/cyto3_identical_masks.png)
 
-The three public 2D inputs are shown with the same cell colors in each output.
+The three public 2D inputs and the larger **Microscopy A** ROI are shown with
+the same cell colors in each output. Every difference-map panel includes that
+image's median upstream/optimized time, speedup and milliseconds saved, taken
+from the five-repeat timing benchmark. Microscopy A contains 1523 cells and
+measured **823.3 to 396.2 ms (2.08x faster; 427.1 ms saved)** at cell diameter 30.
 The difference maps compare every label pixel, including background and label
 IDs. Every map contains zero differences. The displayed masks were recomputed
 from both implementations and match the mask SHA256 hashes in the published
@@ -108,7 +112,8 @@ speed report. Mask, flow and style shapes/dtypes/bytes also match each other.
 
 ![Cell and foreground IoU alongside byte equality](figures/cyto3_mask_iou.png)
 
-All six public image/diameter cases have cell IoU and foreground IoU of 1.0000.
+All six public image/diameter cases and both Microscopy A diameter settings have
+cell IoU and foreground IoU of 1.0000.
 IoU measures agreement with upstream inference, rather than manual-label
 accuracy. Byte equality is checked separately because IoU alone would not
 detect changed label IDs. The figure uses one newly computed pair per case;
@@ -117,6 +122,10 @@ the original benchmark checks all five timed candidate repeats per case.
 [Mask overlays SVG](figures/cyto3_identical_masks.svg) | [PDF](figures/cyto3_identical_masks.pdf) |
 [IoU/equality SVG](figures/cyto3_mask_iou.svg) | [PDF](figures/cyto3_mask_iou.pdf) |
 [Equality data and mask hashes](figures/cyto3_mask_equality.json)
+
+[Microscopy A timing samples and hashes](results/microscopy-a.json) are included
+under an anonymous image label. Its preview is shown above; the original
+supplemental TIFF is not included in the repository.
 
 Reproduce these figures using the public benchmark report generated above:
 
@@ -131,6 +140,20 @@ python benchmarks/plot_exact_masks.py --report /tmp/cyto3-public.json \
 The script checks weights, inputs and mask hashes against the supplied report
 and stops if equality or provenance checks fail. The default report is the
 committed public RTX PRO 6000 report used for the figures in this branch.
+
+To also render Microscopy A, supply its original TIFF and the additional report:
+
+```bash
+python benchmarks/plot_exact_masks.py \
+  --additional-report benchmarks/results/microscopy-a.json \
+  --images /tmp/cellpose-fixtures/data/2D/gray_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D_tif.tif \
+           /path/to/microscopy-a.tif \
+  --output-dir /tmp/cyto3-mask-figures
+```
+
+Inputs are matched by content hash, so the original filename is unnecessary.
 
 Measured medians in milliseconds (all candidate masks exact in all five repeats):
 
@@ -152,7 +175,7 @@ Dimension order is **height x width in pixels** for 2D, and **depth x height x w
 | Microscopy C | 1004 x 1362 | 2008 x 2724 | 15 | 2228.8 | 1117.2 | 2.00x |
 
 Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
-These supplemental image files are not distributed. Public measurements
+Original supplemental TIFFs are not distributed. Public measurements
 are in [results/public-rtx-pro-6000.json](results/public-rtx-pro-6000.json).
 
 Public fixtures: total of the per-case median latencies improves by 1.20x.

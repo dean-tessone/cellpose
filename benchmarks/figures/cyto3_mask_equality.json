@@ -38,7 +38,11 @@
         677
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 209.9649150040932,
+      "candidate_ms": 132.18512599996757,
+      "saved_ms": 77.77978900412563,
+      "speedup": 1.5884155907537185
     },
     {
       "exact": true,
@@ -58,7 +62,11 @@
         512
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 156.96379300788976,
+      "candidate_ms": 122.25029499677476,
+      "saved_ms": 34.71349801111501,
+      "speedup": 1.283954308756726
     },
     {
       "exact": true,
@@ -78,7 +86,11 @@
         512
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 147.8209600027185,
+      "candidate_ms": 108.61431500234175,
+      "saved_ms": 39.20664500037674,
+      "speedup": 1.3609712495036352
     },
     {
       "exact": true,
@@ -98,7 +110,11 @@
         677
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 469.6934770036023,
+      "candidate_ms": 430.6156640086556,
+      "saved_ms": 39.077812994946726,
+      "speedup": 1.0907487029876397
     },
     {
       "exact": true,
@@ -118,7 +134,11 @@
         512
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 214.1730299917981,
+      "candidate_ms": 195.35408000228927,
+      "saved_ms": 18.818949989508837,
+      "speedup": 1.0963325157544102
     },
     {
       "exact": true,
@@ -138,7 +158,59 @@
         512
       ],
       "object_iou": 1.0,
-      "foreground_iou": 1.0
+      "foreground_iou": 1.0,
+      "reference_ms": 216.44057999947108,
+      "candidate_ms": 187.02767000650056,
+      "saved_ms": 29.412909992970526,
+      "speedup": 1.1572650185501867
+    },
+    {
+      "exact": true,
+      "partition_equal_ignoring_label_ids": true,
+      "foreground_changed_pixels": 0,
+      "reference_dtype": "uint16",
+      "candidate_dtype": "uint16",
+      "changed_pixels": 0,
+      "reference_sha256": "5e60b61a209094ef85215062a34bf8ff3378a10ae1aa57c41e58cdf4ce939727",
+      "candidate_sha256": "5e60b61a209094ef85215062a34bf8ff3378a10ae1aa57c41e58cdf4ce939727",
+      "reference_cells": 1523,
+      "candidate_cells": 1523,
+      "image": "Microscopy A",
+      "diameter": 30.0,
+      "shape": [
+        1004,
+        1362
+      ],
+      "object_iou": 1.0,
+      "foreground_iou": 1.0,
+      "reference_ms": 823.3043729997007,
+      "candidate_ms": 396.2132659944473,
+      "saved_ms": 427.09110700525343,
+      "speedup": 2.077932375467809
+    },
+    {
+      "exact": true,
+      "partition_equal_ignoring_label_ids": true,
+      "foreground_changed_pixels": 0,
+      "reference_dtype": "uint16",
+      "candidate_dtype": "uint16",
+      "changed_pixels": 0,
+      "reference_sha256": "4667761407c6889958bad3ebecd463d1cb222f00d079f9435d7c8fcf35283c4b",
+      "candidate_sha256": "4667761407c6889958bad3ebecd463d1cb222f00d079f9435d7c8fcf35283c4b",
+      "reference_cells": 1547,
+      "candidate_cells": 1547,
+      "image": "Microscopy A",
+      "diameter": 15.0,
+      "shape": [
+        1004,
+        1362
+      ],
+      "object_iou": 1.0,
+      "foreground_iou": 1.0,
+      "reference_ms": 2267.6285699999426,
+      "candidate_ms": 1159.587955000461,
+      "saved_ms": 1108.0406149994815,
+      "speedup": 1.955546847672319
     }
   ]
 }
