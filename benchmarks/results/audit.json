@@ -1,0 +1,10 @@
+{
+  "reference": "a54cb48849b7e225a81e8e43dcb042d42427f543",
+  "random_seed": 87,
+  "cases": 320,
+  "devices": [
+    "cpu",
+    "cuda"
+  ],
+  "all_exact": true
+}

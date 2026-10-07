@@ -1,0 +1,174 @@
+{
+  "reference_revision": "a54cb48849b7e225a81e8e43dcb042d42427f543",
+  "candidate_revision": "5611696facd56c0572e0602b8d339f1ea01a082c",
+  "candidate_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "dynamics_source_sha256": "b90d4219679cae05b3aa5b22bc4ffb97252cc97ebb941e1b49eb93ed69603416",
+  "benchmark_source_sha256": "ddca3de8f3f31620652d1a3234ce84445028d9e55e075d12b9e9a06c051e36ba",
+  "python": "3.12.13",
+  "torch": "2.9.1+cu128",
+  "numpy": "2.0.2",
+  "segment_anything": "1.0",
+  "cuda": "12.8",
+  "device": "cuda:0",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "threads": 8,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": false,
+  "matmul_tf32": true,
+  "cudnn_tf32": true,
+  "gpu_processes": "2274022, 3002 MiB",
+  "parameters": {
+    "batch_size": 8,
+    "channel_axis": null,
+    "flow_threshold": 0.4,
+    "min_size": 15,
+    "augment": false,
+    "tile_overlap": 0.1,
+    "resample": true,
+    "do_3D": false,
+    "use_bfloat16": true,
+    "warmup": 2,
+    "repeats": 5
+  },
+  "models": {
+    "cpsam_v2": {
+      "model_sha256": "0f1cc3f7ecdd8a037a57c6c48d9d8921391be4cbce3fa9f13c3e3a2e1253c667",
+      "network_dtype": "torch.bfloat16"
+    },
+    "cpsam": {
+      "model_sha256": "e1440429eb384f95afe32bcba6510f90d518eaedc917ede549bed6804004abe2",
+      "network_dtype": "torch.bfloat16"
+    }
+  },
+  "results": [
+    {
+      "model": "cpsam_v2",
+      "image": "gray_2D.png",
+      "shape": [
+        677,
+        677
+      ],
+      "input_sha256": "94baf002bdc25500af53491d43bb98269b0396eec45fcc602f7c1b13cc83e57c",
+      "diameter": 15.0,
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "mask_stage_exact_all_repeats": true,
+      "eval": {
+        "reference_seconds": [
+          0.8498808000003919,
+          0.8698468599905027,
+          0.8533042179915356,
+          0.8535787659930065,
+          0.9010221759963315
+        ],
+        "candidate_seconds": [
+          0.8449055179953575,
+          0.8778001629980281,
+          0.9209457779943477,
+          0.850470438002958,
+          0.8594676320062717
+        ],
+        "reference_peak_allocated_bytes": 1577362944,
+        "candidate_peak_allocated_bytes": 1577362944,
+        "speedup": 0.9931482399174024
+      },
+      "mask_comparison": {
+        "exact": true,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "foreground_changed_pixels": 0,
+        "reference_sha256": "99d69ae0c06104bafcbbb4e195d4b229b2fde39ba818de421a52f54132015c78",
+        "candidate_sha256": "99d69ae0c06104bafcbbb4e195d4b229b2fde39ba818de421a52f54132015c78",
+        "reference_cells": 221,
+        "candidate_cells": 221
+      },
+      "masks": {
+        "reference_seconds": [
+          0.07182067200483289,
+          0.07255235899356194,
+          0.06903455700376071,
+          0.06802971099386923,
+          0.07350313299684785
+        ],
+        "candidate_seconds": [
+          0.0669968119909754,
+          0.06464839800901245,
+          0.06723536401113961,
+          0.06978512099885847,
+          0.0742322960140882
+        ],
+        "reference_peak_allocated_bytes": 678814720,
+        "candidate_peak_allocated_bytes": 678814720,
+        "speedup": 1.0681978607706144
+      }
+    },
+    {
+      "model": "cpsam",
+      "image": "gray_2D.png",
+      "shape": [
+        677,
+        677
+      ],
+      "input_sha256": "94baf002bdc25500af53491d43bb98269b0396eec45fcc602f7c1b13cc83e57c",
+      "diameter": 15.0,
+      "reference_stable": true,
+      "masks_exact_all_repeats": true,
+      "flows_exact_all_repeats": true,
+      "styles_exact_all_repeats": true,
+      "mask_stage_exact_all_repeats": true,
+      "eval": {
+        "reference_seconds": [
+          0.8949233729945263,
+          0.8911612460069591,
+          0.8782286210043821,
+          0.876662459995714,
+          0.8707974290009588
+        ],
+        "candidate_seconds": [
+          0.8682014739897568,
+          0.8891540960030397,
+          0.8911524249997456,
+          0.8810006139974575,
+          0.8930727979895892
+        ],
+        "reference_peak_allocated_bytes": 1577231872,
+        "candidate_peak_allocated_bytes": 1577231872,
+        "speedup": 0.9877125066984787
+      },
+      "mask_comparison": {
+        "exact": true,
+        "reference_dtype": "uint16",
+        "candidate_dtype": "uint16",
+        "changed_pixels": 0,
+        "foreground_changed_pixels": 0,
+        "reference_sha256": "e440fdbbc0673e47b10c99e1138d47052aec86dbf6908684d969f1afce82d97e",
+        "candidate_sha256": "e440fdbbc0673e47b10c99e1138d47052aec86dbf6908684d969f1afce82d97e",
+        "reference_cells": 220,
+        "candidate_cells": 220
+      },
+      "masks": {
+        "reference_seconds": [
+          0.07087651100300718,
+          0.06902294499741402,
+          0.07188438100274652,
+          0.06485894799698144,
+          0.06692765100160614
+        ],
+        "candidate_seconds": [
+          0.06801113599794917,
+          0.07280501798959449,
+          0.06329395000648219,
+          0.06296774100337643,
+          0.060475384001620114
+        ],
+        "reference_peak_allocated_bytes": 678359040,
+        "candidate_peak_allocated_bytes": 678359040,
+        "speedup": 1.0905141011162218
+      }
+    }
+  ],
+  "all_exact": true
+}

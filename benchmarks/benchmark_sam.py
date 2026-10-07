@@ -109,6 +109,8 @@ def main():
                         help="'native' keeps upstream diameter=None; or specify pixels")
     parser.add_argument("--float32", action="store_true", help="Override default bfloat16 network weights")
     parser.add_argument("--do-3d", action="store_true")
+    parser.add_argument("--z-axis", type=int, help="Default is 0 for 3D volumes")
+    parser.add_argument("--channel-axis", type=int)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=2)
@@ -117,6 +119,7 @@ def main():
     if args.repeats < 1 or args.warmup < 1:
         parser.error("repeats and warmup must both be positive")
     diameters = [None if d == "native" else float(d) for d in args.diameters]
+    z_axis = 0 if args.do_3d and args.z_axis is None else args.z_axis
     torch.set_num_threads(args.threads)
     device = torch.device(args.device)
     reference = reference_functions(args.reference)
@@ -139,7 +142,8 @@ def main():
         "cudnn_tf32": torch.backends.cudnn.allow_tf32,
         "gpu_processes": subprocess.check_output(["nvidia-smi", "--query-compute-apps=pid,used_memory",
             "--format=csv,noheader"], text=True).strip() if device.type == "cuda" else None,
-        "parameters": {"batch_size": args.batch_size, "channel_axis": None,
+        "parameters": {"batch_size": args.batch_size, "channel_axis": args.channel_axis,
+        "z_axis": z_axis,
         "flow_threshold": .4, "min_size": 15, "augment": False,
         "tile_overlap": .1, "resample": True, "do_3D": args.do_3d,
         "use_bfloat16": not args.float32, "warmup": args.warmup,
@@ -160,16 +164,18 @@ def main():
                     with implementation(functions):
                         return model.eval(image, diameter=diameter,
                             batch_size=args.batch_size, do_3D=args.do_3d,
+                            channel_axis=args.channel_axis, z_axis=z_axis,
                             augment=False, flow_threshold=.4, min_size=15, tile_overlap=.1)
                 for _ in range(args.warmup):
                     baseline = evaluate(reference)
                     evaluate(candidate)
-                converted = transforms.convert_image(image, do_3D=args.do_3d)
+                converted = transforms.convert_image(image, do_3D=args.do_3d,
+                    channel_axis=args.channel_axis, z_axis=z_axis)
                 shape = (1, *converted.shape) if converted.ndim < 4 else converted.shape
                 flow, probability = baseline[1][1:]
                 if not args.do_3d:
                     flow, probability = flow[:, None], probability[None]
-                iterations = 200 if diameter is None else int(200 / (30. / diameter))
+                iterations = 200 if diameter is None or diameter <= 0 else int(200 / (30. / diameter))
 
                 def masks_only(functions):
                     with implementation(functions):
