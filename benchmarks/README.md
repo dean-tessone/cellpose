@@ -92,20 +92,22 @@ python benchmarks/plot_benchmarks.py --kind cyto3 \
 
 Measured medians in milliseconds (all candidate masks exact in all five repeats):
 
-| Input | Diameter | Upstream | Optimized | Speedup |
-| --- | ---: | ---: | ---: | ---: |
-| gray_2D.png | 30 | 210.0 | 132.2 | 1.59x |
-| rgb_2D.png | 30 | 157.0 | 122.3 | 1.28x |
-| rgb_2D_tif.tif | 30 | 147.8 | 108.6 | 1.36x |
-| gray_2D.png | 15 | 469.7 | 430.6 | 1.09x |
-| rgb_2D.png | 15 | 214.2 | 195.4 | 1.10x |
-| rgb_2D_tif.tif | 15 | 216.4 | 187.0 | 1.16x |
-| Microscopy A | 30 | 823.3 | 396.2 | 2.08x |
-| Microscopy B | 30 | 902.7 | 453.7 | 1.99x |
-| Microscopy C | 30 | 627.5 | 436.6 | 1.44x |
-| Microscopy A | 15 | 2267.6 | 1159.6 | 1.96x |
-| Microscopy B | 15 | 2504.6 | 1180.1 | 2.12x |
-| Microscopy C | 15 | 2228.8 | 1117.2 | 2.00x |
+Dimension order is **height x width in pixels** for 2D, and **depth x height x width in voxels** for 3D. Channels are excluded. Network dimensions are after diameter-based resizing and before padding/tiling.
+
+| Input | Input spatial dimensions | Network spatial dimensions | Cell diameter (pixels) | Upstream | Optimized | Speedup |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| gray_2D.png | 677 x 677 | 677 x 677 | 30 | 210.0 | 132.2 | 1.59x |
+| rgb_2D.png | 383 x 512 | 383 x 512 | 30 | 157.0 | 122.3 | 1.28x |
+| rgb_2D_tif.tif | 384 x 512 | 384 x 512 | 30 | 147.8 | 108.6 | 1.36x |
+| gray_2D.png | 677 x 677 | 1354 x 1354 | 15 | 469.7 | 430.6 | 1.09x |
+| rgb_2D.png | 383 x 512 | 766 x 1024 | 15 | 214.2 | 195.4 | 1.10x |
+| rgb_2D_tif.tif | 384 x 512 | 768 x 1024 | 15 | 216.4 | 187.0 | 1.16x |
+| Microscopy A | 1004 x 1362 | 1004 x 1362 | 30 | 823.3 | 396.2 | 2.08x |
+| Microscopy B | 1004 x 1362 | 1004 x 1362 | 30 | 902.7 | 453.7 | 1.99x |
+| Microscopy C | 1004 x 1362 | 1004 x 1362 | 30 | 627.5 | 436.6 | 1.44x |
+| Microscopy A | 1004 x 1362 | 2008 x 2724 | 15 | 2267.6 | 1159.6 | 1.96x |
+| Microscopy B | 1004 x 1362 | 2008 x 2724 | 15 | 2504.6 | 1180.1 | 2.12x |
+| Microscopy C | 1004 x 1362 | 2008 x 2724 | 15 | 2228.8 | 1117.2 | 2.00x |
 
 Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
 These supplemental image files are not distributed. Public measurements
