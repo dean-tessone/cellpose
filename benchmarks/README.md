@@ -168,25 +168,27 @@ python benchmarks/plot_benchmarks.py --kind sam \
 Median latencies in milliseconds. All candidate masks, flows and styles matched
 the reference bytes in every timed repeat.
 
-| Input/configuration | Model | Eval reference | Eval optimized | Mask reference | Mask optimized | Mask speedup |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| gray_2D.png | cpsam_v2 | 308.7 | 297.9 | 66.2 | 58.7 | 1.13x |
-| rgb_2D.png | cpsam_v2 | 153.7 | 153.9 | 57.9 | 51.2 | 1.13x |
-| rgb_2D_tif.tif | cpsam_v2 | 161.9 | 154.2 | 58.0 | 50.1 | 1.16x |
-| gray_2D.png | cpsam | 306.6 | 314.8 | 72.3 | 61.4 | 1.18x |
-| rgb_2D.png | cpsam | 168.2 | 163.4 | 67.5 | 52.7 | 1.28x |
-| rgb_2D_tif.tif | cpsam | 159.7 | 153.0 | 54.8 | 45.3 | 1.21x |
-| Microscopy A | cpsam_v2 | 828.8 | 819.9 | 148.8 | 139.8 | 1.06x |
-| Microscopy B | cpsam_v2 | 814.0 | 803.0 | 146.7 | 142.9 | 1.03x |
-| Microscopy C | cpsam_v2 | 766.4 | 776.3 | 111.2 | 103.1 | 1.08x |
-| Microscopy A | cpsam | 771.2 | 783.7 | 145.0 | 141.1 | 1.03x |
-| Microscopy B | cpsam | 806.9 | 810.0 | 152.7 | 146.3 | 1.04x |
-| Microscopy C | cpsam | 765.9 | 756.6 | 107.0 | 114.6 | 0.93x |
-| gray_2D.png (diameter 15) | cpsam_v2 | 853.6 | 859.5 | 71.8 | 67.2 | 1.07x |
-| gray_2D.png (diameter 15) | cpsam | 878.2 | 889.2 | 69.0 | 63.3 | 1.09x |
-| rgb_2D.png (FP32) | cpsam_v2 | 205.9 | 202.4 | 58.4 | 49.5 | 1.18x |
-| gray_3D.tif (3D) | cpsam_v2 | 3178.6 | 3174.9 | 39.3 | 25.3 | 1.55x |
-| Microscopy C (15 repeats) | cpsam | 646.9 | 645.1 | 105.7 | 97.5 | 1.08x |
+Dimension order is **height x width in pixels** for 2D, and **depth x height x width in voxels** for 3D. Channels are excluded. Network dimensions are after diameter-based resizing and before padding/tiling.
+
+| Input/configuration | Input spatial dimensions | Network spatial dimensions | Model | Eval reference | Eval optimized | Mask reference | Mask optimized | Mask speedup |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| gray_2D.png | 677 x 677 | 677 x 677 | cpsam_v2 | 308.7 | 297.9 | 66.2 | 58.7 | 1.13x |
+| rgb_2D.png | 383 x 512 | 383 x 512 | cpsam_v2 | 153.7 | 153.9 | 57.9 | 51.2 | 1.13x |
+| rgb_2D_tif.tif | 384 x 512 | 384 x 512 | cpsam_v2 | 161.9 | 154.2 | 58.0 | 50.1 | 1.16x |
+| gray_2D.png | 677 x 677 | 677 x 677 | cpsam | 306.6 | 314.8 | 72.3 | 61.4 | 1.18x |
+| rgb_2D.png | 383 x 512 | 383 x 512 | cpsam | 168.2 | 163.4 | 67.5 | 52.7 | 1.28x |
+| rgb_2D_tif.tif | 384 x 512 | 384 x 512 | cpsam | 159.7 | 153.0 | 54.8 | 45.3 | 1.21x |
+| Microscopy A | 1004 x 1362 | 1004 x 1362 | cpsam_v2 | 828.8 | 819.9 | 148.8 | 139.8 | 1.06x |
+| Microscopy B | 1004 x 1362 | 1004 x 1362 | cpsam_v2 | 814.0 | 803.0 | 146.7 | 142.9 | 1.03x |
+| Microscopy C | 1004 x 1362 | 1004 x 1362 | cpsam_v2 | 766.4 | 776.3 | 111.2 | 103.1 | 1.08x |
+| Microscopy A | 1004 x 1362 | 1004 x 1362 | cpsam | 771.2 | 783.7 | 145.0 | 141.1 | 1.03x |
+| Microscopy B | 1004 x 1362 | 1004 x 1362 | cpsam | 806.9 | 810.0 | 152.7 | 146.3 | 1.04x |
+| Microscopy C | 1004 x 1362 | 1004 x 1362 | cpsam | 765.9 | 756.6 | 107.0 | 114.6 | 0.93x |
+| gray_2D.png (diameter 15) | 677 x 677 | 1354 x 1354 | cpsam_v2 | 853.6 | 859.5 | 71.8 | 67.2 | 1.07x |
+| gray_2D.png (diameter 15) | 677 x 677 | 1354 x 1354 | cpsam | 878.2 | 889.2 | 69.0 | 63.3 | 1.09x |
+| rgb_2D.png (FP32) | 383 x 512 | 383 x 512 | cpsam_v2 | 205.9 | 202.4 | 58.4 | 49.5 | 1.18x |
+| gray_3D.tif (3D) | 75 x 75 x 75 | 75 x 75 x 75 | cpsam_v2 | 3178.6 | 3174.9 | 39.3 | 25.3 | 1.55x |
+| Microscopy C (15 repeats) | 1004 x 1362 | 1004 x 1362 | cpsam | 646.9 | 645.1 | 105.7 | 97.5 | 1.08x |
 
 Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
 These supplemental image files are not distributed. The initial Microscopy C
@@ -246,6 +248,24 @@ cases. These results support evaluating batch size before changing precision.
 The shared GPU adds timing uncertainty; none of these measurements establishes a
 universal speedup. All measured cases are retained.
 
+### Interpreting image size
+
+The FP16 preset showed more benefit on the 1004 x 1362 supplemental images
+(1.37 megapixels) than on native public images (0.20–0.46 megapixels). The resized
+public image used a 1354 x 1354 network input (1.83 megapixels) and measured
+1.07–1.08x faster. Larger inputs create more tile/preprocessing work, so this
+pattern is consistent with a benefit from GPU image processing. It is an
+interpretation, rather than an isolated measurement of those operations.
+
+Image size alone does not establish the trend: inputs differ in cell density and
+content, the resized case also changes interpolation and the default dynamics
+iteration count, and GPU load varied. The exact SAM dynamics optimization did
+not show a clear increase in total speedup with image size. Cellpose 3's cyto3
+optimization showed larger gains on the supplemental images, but increasing
+network resolution by requesting a smaller diameter did not consistently
+increase its speedup. A controlled size sweep would be needed to isolate size
+from these other factors.
+
 IoU is agreement with standard inference, **not accuracy against manual labels**.
 Foreground IoU compares the union of all cell pixels. Object IoU uses one-to-one
 matching at IoU >= 0.5. Unmatched cells contribute zero to the reference/prediction
@@ -257,20 +277,24 @@ repeat. Label IDs are ignored by IoU, but byte equality checks include them.
 Median times in milliseconds; the following table reports the FP16 preset and its
 agreement score. Missing/extra counts are maxima across repeats.
 
-| Image | Checkpoint | Upstream | Fast FP16 | Speedup | Object agreement IoU | Foreground IoU | Missing / extra |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| gray_2D.png | cpsam_v2 | 616.3 | 644.7 | 0.96x | 0.9951 | 0.9965 | 0 / 0 |
-| rgb_2D.png | cpsam_v2 | 315.6 | 322.3 | 0.98x | 0.9975 | 0.9981 | 0 / 0 |
-| rgb_2D_tif.tif | cpsam_v2 | 326.0 | 325.2 | 1.00x | 0.9987 | 0.9988 | 0 / 0 |
-| gray_2D.png | cpsam | 612.6 | 643.5 | 0.95x | 0.9909 | 0.9958 | 0 / 1 |
-| rgb_2D.png | cpsam | 322.9 | 322.4 | 1.00x | 0.9971 | 0.9977 | 0 / 0 |
-| rgb_2D_tif.tif | cpsam | 329.9 | 317.9 | 1.04x | 0.9986 | 0.9990 | 0 / 0 |
-| Microscopy A | cpsam_v2 | 1505.3 | 1427.5 | 1.05x | 0.9977 | 0.9979 | 0 / 0 |
-| Microscopy B | cpsam_v2 | 1479.9 | 1411.2 | 1.05x | 0.9976 | 0.9978 | 0 / 0 |
-| Microscopy C | cpsam_v2 | 1458.8 | 1396.7 | 1.04x | 0.9942 | 0.9957 | 2 / 0 |
-| Microscopy A | cpsam | 1481.8 | 1427.6 | 1.04x | 0.9977 | 0.9980 | 0 / 0 |
-| Microscopy B | cpsam | 1459.4 | 1386.1 | 1.05x | 0.9973 | 0.9982 | 1 / 0 |
-| Microscopy C | cpsam | 1440.7 | 1353.1 | 1.06x | 0.9952 | 0.9965 | 1 / 0 |
+Input and network dimensions are **height x width in pixels**, excluding channels. Network dimensions are before padding and tiling; megapixels describe this resized spatial input.
+
+| Image | Input H x W | Network H x W | Network megapixels | Checkpoint | Upstream (ms) | Fast FP16 (ms) | Speedup | Object agreement IoU | Foreground IoU | Missing / extra |
+| --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| gray_2D.png | 677 x 677 | 677 x 677 | 0.46 | cpsam_v2 | 616.3 | 644.7 | 0.96x | 0.9951 | 0.9965 | 0 / 0 |
+| rgb_2D.png | 383 x 512 | 383 x 512 | 0.20 | cpsam_v2 | 315.6 | 322.3 | 0.98x | 0.9975 | 0.9981 | 0 / 0 |
+| rgb_2D_tif.tif | 384 x 512 | 384 x 512 | 0.20 | cpsam_v2 | 326.0 | 325.2 | 1.00x | 0.9987 | 0.9988 | 0 / 0 |
+| gray_2D.png | 677 x 677 | 677 x 677 | 0.46 | cpsam | 612.6 | 643.5 | 0.95x | 0.9909 | 0.9958 | 0 / 1 |
+| rgb_2D.png | 383 x 512 | 383 x 512 | 0.20 | cpsam | 322.9 | 322.4 | 1.00x | 0.9971 | 0.9977 | 0 / 0 |
+| rgb_2D_tif.tif | 384 x 512 | 384 x 512 | 0.20 | cpsam | 329.9 | 317.9 | 1.04x | 0.9986 | 0.9990 | 0 / 0 |
+| Microscopy A | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam_v2 | 1505.3 | 1427.5 | 1.05x | 0.9977 | 0.9979 | 0 / 0 |
+| Microscopy B | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam_v2 | 1479.9 | 1411.2 | 1.05x | 0.9976 | 0.9978 | 0 / 0 |
+| Microscopy C | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam_v2 | 1458.8 | 1396.7 | 1.04x | 0.9942 | 0.9957 | 2 / 0 |
+| Microscopy A | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam | 1481.8 | 1427.6 | 1.04x | 0.9977 | 0.9980 | 0 / 0 |
+| Microscopy B | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam | 1459.4 | 1386.1 | 1.05x | 0.9973 | 0.9982 | 1 / 0 |
+| Microscopy C | 1004 x 1362 | 1004 x 1362 | 1.37 | cpsam | 1440.7 | 1353.1 | 1.06x | 0.9952 | 0.9965 | 1 / 0 |
+| gray_2D.png (cell diameter 15 pixels) | 677 x 677 | 1354 x 1354 | 1.83 | cpsam_v2 | 779.5 | 718.6 | 1.08x | 0.9959 | 0.9968 | 0 / 0 |
+| gray_2D.png (cell diameter 15 pixels) | 677 x 677 | 1354 x 1354 | 1.83 | cpsam | 775.4 | 724.3 | 1.07x | 0.9969 | 0.9978 | 0 / 0 |
 
 The public grayscale image at **cell diameter 15 pixels** exercises GPU resizing
 (the network input resolution is doubled). The preset measured **1.08x** for
