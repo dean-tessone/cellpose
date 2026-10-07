@@ -70,10 +70,10 @@ PR figures (public test fixtures):
 
 ![cyto3 total inference latency and speedup](figures/cyto3_inference.png)
 
-The left panel shows median full-inference latency and the change in milliseconds.
+These are **2D images**. The diameter labels specify the requested cell diameter in pixels. The left panel shows median full-inference latency and the change in milliseconds.
 The right panel shows the ratio of median reference time to median optimized time.
 Whiskers are observed repeat ranges, not confidence intervals. GPU load was shared.
-[SVG](figures/cyto3_inference.svg) · [PDF](figures/cyto3_inference.pdf) ·
+[SVG](figures/cyto3_inference.svg) | [PDF](figures/cyto3_inference.pdf) |
 [Numerical summary](figures/cyto3_inference_summary.csv)
 
 Regenerate these figures with NumPy and Matplotlib installed:
