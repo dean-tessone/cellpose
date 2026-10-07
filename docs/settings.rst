@@ -28,6 +28,43 @@ running a list of images for reference:
     imgs = [imread(f) for f in files]
     masks, flows, styles, diams = model.eval(imgs, flow_threshold=0.4, cellprob_threshold=0.0)
 
+Optional fast inference
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``fast=True`` to opt into FP16 network execution and GPU percentile
+normalization, resizing, tiling and tile averaging for unaugmented CUDA 2D
+inference. This mode can produce slightly less precise masks and change cell
+boundaries or counts. Its outputs are **not bitwise identical** to standard
+inference. Flow quality control, dynamics iterations and mask cleanup retain
+their usual settings.
+
+::
+
+    model = models.CellposeModel(gpu=True, pretrained_model="cpsam_v2")
+    masks, flows, styles = model.eval(img, fast=True)
+
+The CLI equivalent is ``python -m cellpose --use_gpu --fast --image_path img.tif``.
+The default tile batch size is 8 for standard inference and 32 for fast mode;
+an explicit ``batch_size`` or ``--batch_size`` overrides either default.
+Larger batches need more GPU memory. Fast mode also caches an FP16 copy of
+network parameters, adding roughly 600 MB for Cellpose-SAM and a first-call
+conversion cost. Original model weights are preserved. Reuse the same model
+for sequential calls to amortize this cost; concurrent calls on one model
+object are not supported by this cache.
+
+CPU/MPS, 3D, augmentation and stitching requests use standard inference with
+a log message. Advanced normalization settings (such as tile normalization,
+sharpening or explicit intensity bounds) retain CPU normalization while the
+remaining fast operations still apply. If FP16 produces nonfinite network
+outputs, inference raises an error; rerun with ``fast=False``.
+
+Performance depends on image size, hardware and batch size. FP16 and the
+default bfloat16 network both use 16-bit formats; changing formats alone does
+not guarantee a speedup. The benchmark reports measure mask IoU agreement
+with standard inference, rather than accuracy against manual annotations.
+Cellpose-SAM ``cpsam`` and ``cpsam_v2`` were evaluated; other backbones have
+not been evaluated with this optional mode.
+
 Channels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -113,5 +150,4 @@ or ``niter=0`` sets the number of iterations to be proportional to the ROI diame
 For longer ROIs, more iterations might be needed, for example ``niter=2000``, for convergence.
 
 For info about 3D data, see :ref:`do3d`.
-
 

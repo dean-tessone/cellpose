@@ -129,8 +129,13 @@ def get_arg_parser():
         "--augment", action="store_true",
         help="tiles image with overlapping tiles and flips overlapped regions to augment"
     )
-    algorithm_args.add_argument("--batch_size", default=8, type=int,
-                               help="inference batch size. Default: %(default)s")
+    algorithm_args.add_argument("--batch_size", default=None, type=int,
+                               help="inference tile batch size (default: 8, or 32 with --fast)")
+    algorithm_args.add_argument("--fast", action="store_true", help=
+        "opt-in FP16 and GPU preprocessing/tiling for unaugmented CUDA 2D inference; "
+        "may yield slightly less precise masks and changed boundaries/cell counts "
+        "(not bitwise identical). Retains flow QC and dynamics iterations. "
+        "Other devices, 3D, augmentation and stitching use standard inference.")
 
     # TODO: remove deprecated in future version
     algorithm_args.add_argument(

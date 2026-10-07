@@ -231,6 +231,7 @@ def _evaluate_cellposemodel_cli(args, logger, imf, device, pretrained_model, nor
                 stitch_threshold=args.stitch_threshold, 
                 min_size=args.min_size,
                 batch_size=args.batch_size,
+                fast=args.fast,
                 bsize=args.bsize,
                 resample=not args.no_resample,
                 normalize=normalize,

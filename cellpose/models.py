@@ -22,6 +22,7 @@ try:
 except:
     models_logger.warning("Could not import CPDINO, run `pip install git+https://github.com/facebookresearch/dinov3` to use CPDINO model")
 from .core import assign_device, run_net, run_3D
+from .fast import run_net_fast, supports_normalization
 
 _MODEL_URL = "https://huggingface.co/mouseland/cellpose-sam/resolve/main/"
 _MODEL_DIR_ENV = os.environ.get("CELLPOSE_LOCAL_MODELS_PATH")
@@ -164,18 +165,19 @@ class CellposeModel():
         self.net.load_model(self.pretrained_model, device=self.device)
         
         
-    def eval(self, x, batch_size=8, resample=True, channels=None, channel_axis=None,
+    def eval(self, x, batch_size=None, resample=True, channels=None, channel_axis=None,
              z_axis=None, normalize=True, rescale=None, diameter=None,
              flow_threshold=0.4, cellprob_threshold=0.0, do_3D=False, anisotropy=None,
              flow3D_smooth=0, stitch_threshold=0.0, min_size=15, max_size_fraction=0.4, 
              niter=None, augment=False, tile_overlap=0.1, bsize=None, 
-             compute_masks=True, progress=None):
+             compute_masks=True, progress=None, fast=False):
         """ segment list of images x, or 4D array - Z x 3 x Y x X
 
         Args:
             x (list, np.ndarry): can be list of 2D/3D/4D images, or array of 2D/3D/4D images. Images must have 3 channels.
             batch_size (int, optional): number of 256x256 patches to run simultaneously on the GPU
-                (can make smaller or bigger depending on GPU memory usage). Defaults to 64.
+                (can make smaller or bigger depending on GPU memory usage). Defaults to 8,
+                or 32 with fast=True. An explicit value is respected in either mode.
             resample (bool, optional): run dynamics at original image size (will be slower but create more accurate boundaries). 
             channel_axis (int, optional): channel axis in element of list x, or of np.ndarray x. 
                 if None, channels dimension is attempted to be automatically determined. Defaults to None.
@@ -209,6 +211,12 @@ class CellposeModel():
             interp (bool, optional): interpolate during 2D dynamics (not available in 3D) . Defaults to True.
             compute_masks (bool, optional): Whether or not to compute dynamics and return masks. Returns empty array if False. Defaults to True.
             progress (QProgressBar, optional): pyqt progress bar. Defaults to None.
+            fast (bool, optional): opt-in FP16 network execution and GPU normalization,
+                resizing, tiling and averaging for unaugmented CUDA 2D inference.
+                Can yield slightly less precise masks and change cell boundaries/counts;
+                outputs are not bitwise identical. Flow QC and dynamics iterations are
+                retained. Other devices, 3D, augmentation and stitching use standard
+                inference. Defaults to False. Larger batches require more GPU memory.
 
         Returns:
             A tuple containing (masks, flows, styles): 
@@ -221,6 +229,14 @@ class CellposeModel():
             styles (list of 1D arrays of length 256 or single 1D array): Style vector containing only zeros. Retained for compaibility with CP3. 
             
         """
+        if fast and (self.device.type != "cuda" or do_3D or augment or stitch_threshold > 0):
+            models_logger.warning("fast mode supports unaugmented CUDA 2D inference; "
+                                  "using standard inference for this request")
+            fast = False
+        batch_size = (32 if fast else 8) if batch_size is None else batch_size
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+
         if channels is not None:
             models_logger.warning("channels argument is deprecated in v4.0.1+, Cellpose4 takes inputs with arbitrary channel orders. If the image has multiple channels, use channel_axis to specify the axis. Ignoring channels argument...")
 
@@ -247,7 +263,7 @@ class CellposeModel():
                                 stitch_threshold=stitch_threshold, min_size=min_size, 
                                 max_size_fraction=max_size_fraction, niter=niter, 
                                 augment=augment, tile_overlap=tile_overlap, bsize=bsize, 
-                                compute_masks=compute_masks, progress=progress)
+                                compute_masks=compute_masks, progress=progress, fast=fast)
                 self.timing.append(time.time() - tic)
                 masks.append(out[0])
                 flows.append(out[1])
@@ -289,13 +305,17 @@ class CellposeModel():
                     "normalize_params['norm3D'] is True but do_3D is False and stitch_threshold=0, so setting to False"
                 )
                 normalize_params["norm3D"] = False
-        if do_normalization:
+        gpu_normalize = None
+        if do_normalization and fast and supports_normalization(normalize_params):
+            gpu_normalize = normalize_params
+        elif do_normalization:
             x = transforms.normalize_img(x, **normalize_params)
 
         dP, cellprob, styles = self._run_net(x, resample=resample, rescale=rescale,
                                              augment=augment, batch_size=batch_size, 
                                              tile_overlap=tile_overlap, bsize=bsize,
-                                             do_3D=do_3D, anisotropy=anisotropy)
+                                             do_3D=do_3D, anisotropy=anisotropy,
+                                             fast=fast, normalize_params=gpu_normalize)
 
         if do_3D and flow3D_smooth:
             if isinstance(flow3D_smooth, (int, float)):
@@ -330,7 +350,8 @@ class CellposeModel():
     
 
     def _run_net(self, x, rescale=1.0, resample=True, augment=False, batch_size=8,
-                 tile_overlap=0.1, bsize=None, anisotropy=1.0, do_3D=False):
+                 tile_overlap=0.1, bsize=None, anisotropy=1.0, do_3D=False,
+                 fast=False, normalize_params=None):
         """ run network on image x """
         tic = time.time()
         shape = x.shape
@@ -358,10 +379,18 @@ class CellposeModel():
             cellprob = yf[..., -1]
             dP = yf[..., :-1].transpose((3, 0, 1, 2))
         else:
-            yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
-                                 batch_size=batch_size, tile_overlap=tile_overlap, 
-                                 rsz=rescale if rescale !=1.0 else None)
-            if resample:
+            if fast:
+                if not hasattr(self, "_fast_cache"):
+                    self._fast_cache = {}
+                yf, styles = run_net_fast(self.net, x, bsize=bsize,
+                    batch_size=batch_size, tile_overlap=tile_overlap, rescale=rescale,
+                    resample=resample, normalize_params=normalize_params,
+                    cache=self._fast_cache)
+            else:
+                yf, styles = run_net(self.net, x, bsize=bsize, augment=augment,
+                                     batch_size=batch_size, tile_overlap=tile_overlap,
+                                     rsz=rescale if rescale !=1.0 else None)
+            if resample and not fast:
                 if rescale != 1.0:
                     yf = transforms.resize_image(yf, shape[1], shape[2])
             cellprob = yf[..., -1]
