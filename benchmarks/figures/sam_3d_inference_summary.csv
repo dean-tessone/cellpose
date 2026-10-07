@@ -1,0 +1,3 @@
+configuration,reference_ms,optimized_ms,delta_ms,speedup,repeats
+"Grayscale volume: 75 x 75 x 75 voxels
+Checkpoint: cpsam_v2",3178.561529988656,3174.9150620016735,-3.646467986982316,1.0011485245796412,3

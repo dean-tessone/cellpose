@@ -1,0 +1,5 @@
+configuration,stage,reference_ms,optimized_ms,saved_ms,speedup,repeats
+"Grayscale volume: 75 x 75 x 75 voxels
+Checkpoint: cpsam_v2",eval,3178.561529988656,3174.9150620016735,3.646467986982316,1.0011485245796412,3
+"Grayscale volume: 75 x 75 x 75 voxels
+Checkpoint: cpsam_v2",masks,39.25164400425274,25.34735799417831,13.90428601007443,1.5485497152511087,3

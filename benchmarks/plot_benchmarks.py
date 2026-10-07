@@ -19,7 +19,7 @@ REFERENCE = "#64748b"
 OPTIMIZED = "#0f766e"
 INK = "#172b3a"
 IMAGE_NAMES = {"gray_2D.png": "Grayscale PNG", "rgb_2D.png": "RGB PNG",
-               "rgb_2D_tif.tif": "RGB TIFF", "gray_3D.tif": "3D grayscale"}
+               "rgb_2D_tif.tif": "RGB TIFF", "gray_3D.tif": "Grayscale volume"}
 
 
 def load_report(path):
@@ -46,8 +46,11 @@ def samples(row, stage=None):
 def row_label(row, kind):
     name = IMAGE_NAMES.get(row["image"], row["image"])
     if kind == "cyto3":
-        return f"{row['diameter']:g} px · {name}"
-    return f"{row['model']} · {name}"
+        return f"{name}\nCell diameter: {row['diameter']:g} pixels"
+    if "3D" in row["image"]:
+        dimensions = " x ".join(map(str, row["shape"][:3]))
+        return f"{name}: {dimensions} voxels\nCheckpoint: {row['model']}"
+    return f"{name}\nCheckpoint: {row['model']}"
 
 
 def positions(rows, kind):
@@ -77,8 +80,11 @@ def range_error(center, values):
 def export(fig, directory, name):
     directory.mkdir(parents=True, exist_ok=True)
     for extension in ["png", "svg", "pdf"]:
-        fig.savefig(directory / f"{name}.{extension}", dpi=300,
+        path = directory / f"{name}.{extension}"
+        fig.savefig(path, dpi=300,
                     bbox_inches="tight", facecolor="white")
+        if extension == "svg":
+            path.write_text("\n".join(line.rstrip() for line in path.read_text().splitlines()) + "\n")
     plt.close(fig)
 
 
@@ -87,21 +93,24 @@ def overview(report, kind, directory):
     y = positions(rows, kind)
     stage = None if kind == "cyto3" else "eval"
     times = [samples(row, stage) for row in rows]
-    fig, axes = plt.subplots(1, 2, figsize=(14, 7.8), sharey=True,
+    is_volume = report["parameters"].get("do_3D", False)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4.8 if is_volume else 7.8), sharey=True,
                              gridspec_kw={"width_ratios": [1.65, 1]})
-    fig.subplots_adjust(left=.24, right=.97, top=.80, bottom=.19, wspace=.18)
-    title = "cyto3" if kind == "cyto3" else "Cellpose-SAM"
-    fig.text(.035, .95, f"{title}: total inference latency and speedup",
+    fig.subplots_adjust(left=.28 if is_volume else .24, right=.97,
+                        top=.72 if is_volume else .80,
+                        bottom=.28 if is_volume else .19, wspace=.18)
+    title = "Cellpose 3 (cyto3)" if kind == "cyto3" else "Cellpose-SAM"
+    fig.text(.035, .95, f"{title}: total segmentation time for " + ("3D volumes" if is_volume else "2D images"),
              fontsize=19, weight="bold", color=INK)
     revision = report["reference_revision"][:7]
     precision = "bfloat16" if report["parameters"].get("use_bfloat16") else "FP32"
-    subtitle = (f"Reference: Cellpose 3.1.1.3 ({revision}) · FP32 network · channels [0, 0]"
+    subtitle = (f"Reference: Cellpose 3.1.1.3 ({revision}) ; FP32 network ; channels [0, 0]"
                 if kind == "cyto3" else
-                f"Reference: Cellpose main {revision} · {precision} network · native diameter")
+                f"Reference: Cellpose main {revision} ; {precision} network ; native scale (no resizing)")
     fig.text(.035, .905, subtitle, fontsize=11, color=REFERENCE)
     fig.legend([Line2D([0], [0], color=REFERENCE, linewidth=8),
                 Line2D([0], [0], color=OPTIMIZED, linewidth=8)],
-               ["Upstream reference", "Optimized"], loc="upper left",
+               ["Upstream reference", "Exact optimization"], loc="upper left",
                bbox_to_anchor=(.235, .865), frameon=False, ncol=2, fontsize=11)
     max_time = max(max(ref.max(), opt.max()) * 1000 for ref, opt in times)
     ratios = [ref / opt for ref, opt in times]
@@ -121,7 +130,7 @@ def overview(report, kind, directory):
                          error_kw={"elinewidth": 1, "capsize": 2, "ecolor": INK})
             label = f"{center:.1f}"
             if offset > 0:
-                label += f" (Δ {delta:+.1f} ms)"
+                label += f" ({abs(delta):.1f} ms {'saved' if delta < 0 else 'longer'})"
             axes[0].text(max(center, values.max()) + max_time * .018,
                          y[i] + offset, label, va="center", fontsize=9, color=INK)
         speedup = med_ref / med_opt
@@ -143,28 +152,29 @@ def overview(report, kind, directory):
     fig.text(.035, .105, "Bars/large markers: medians. Latency whiskers: repeat min–max. "
              "Speedup whiskers/dots: paired repeat range/samples.", fontsize=9, color=REFERENCE)
     counts = "/".join(str(n) for n in sorted({len(ref) for ref, _ in times}))
-    fig.text(.035, .070, "Δ = optimized − reference (negative means less time). "
+    fig.text(.035, .070, "Time differences compare medians. "
              f"{counts} synchronized repeats; batch size {report['parameters']['batch_size']}; "
              f"{hardware_label(report)}.",
              fontsize=9, color=REFERENCE)
-    fig.text(.035, .035, "Public Cellpose test fixtures · All candidate mask bytes match the reference · "
+    fig.text(.035, .035, "Public Cellpose test fixtures ; All candidate mask bytes match the reference ; "
              "Model loading and image decoding excluded", fontsize=9, color=REFERENCE)
-    filename = "cyto3_inference" if kind == "cyto3" else "sam_inference"
+    filename = "cyto3_inference" if kind == "cyto3" else ("sam_3d_inference" if is_volume else "sam_inference")
     export(fig, directory, filename)
     with (directory / f"{filename}_summary.csv").open("w", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["configuration", "reference_ms", "optimized_ms", "delta_ms", "speedup", "repeats"])
         writer.writerows(summary)
 
 
 def mask_effect(report, volume_report, directory):
     rows = list(report["results"])
-    if volume_report is not None:
-        rows.extend(volume_report["results"])
+    is_volume = report["parameters"].get("do_3D", False)
     y = positions(rows, "sam")
-    fig, axes = plt.subplots(1, 2, figsize=(14, 8), sharey=True)
-    fig.subplots_adjust(left=.25, right=.97, top=.79, bottom=.18, wspace=.24)
-    fig.text(.035, .95, "Cellpose-SAM: mask construction and total inference",
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4.8 if is_volume else 8), sharey=True)
+    fig.subplots_adjust(left=.28 if is_volume else .25, right=.97,
+                        top=.70 if is_volume else .79,
+                        bottom=.27 if is_volume else .18, wspace=.24)
+    fig.text(.035, .95, "Cellpose-SAM: " + ("3D volume" if is_volume else "2D images") + " timing breakdown",
              fontsize=19, weight="bold", color=INK)
     fig.text(.035, .905, "Separate timings show the effect of the shared dynamics optimization",
              fontsize=11, color=REFERENCE)
@@ -210,9 +220,10 @@ def mask_effect(report, volume_report, directory):
     fig.text(.035, .055, f"{precision} network; FP32 dynamics; {hardware_label(report)}. "
              "All mask bytes identical. GPU load varies; small total-inference changes need cautious interpretation.",
              fontsize=9, color=REFERENCE)
-    export(fig, directory, "sam_mask_effect")
-    with (directory / "sam_mask_effect_summary.csv").open("w", newline="") as f:
-        writer = csv.writer(f)
+    filename = "sam_3d_mask_effect" if is_volume else "sam_mask_effect"
+    export(fig, directory, filename)
+    with (directory / f"{filename}_summary.csv").open("w", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["configuration", "stage", "reference_ms", "optimized_ms",
                          "saved_ms", "speedup", "repeats"])
         writer.writerows(summary)
@@ -231,7 +242,10 @@ def main():
     overview(report, args.kind, args.output_dir)
     if args.kind == "sam":
         volume = load_report(args.volume_report) if args.volume_report else None
-        mask_effect(report, volume, args.output_dir)
+        mask_effect(report, None, args.output_dir)
+        if volume:
+            overview(volume, "sam", args.output_dir)
+            mask_effect(volume, None, args.output_dir)
 
 
 if __name__ == "__main__":

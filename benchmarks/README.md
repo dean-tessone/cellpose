@@ -12,12 +12,12 @@ The runtime patch changes two operations in `cellpose/dynamics.py`:
   sequence of axis-wise tensor operations. Since these masks contain only 0 and
   1, native pooling preserves the values, including boundary maxima and ties.
 
-The histogram pooling, seed ordering, seed gathering, maximum scatter, mask
+For standard inference (`fast=False`), the histogram pooling, seed ordering, seed gathering, maximum scatter, mask
 quality control, hole filling, label renumbering, normalization, resizing,
 network weights and network precision retain upstream behavior. Current main
 already includes vectorized seed gathering and maximum scatter. This change
 reduces additional coordinate and pooling overhead with no new runtime dependency
-or inference option.
+for the default path. An optional approximate inference mode is described below.
 
 Validation passed for both `cpsam` and main's default `cpsam_v2`, using upstream's
 default bfloat16 network weights. It also passed for FP32, diameter 15 rescaling,
@@ -123,12 +123,16 @@ The right panel shows the ratio of median reference time to median optimized tim
 ![SAM mask construction and total inference effects](figures/sam_mask_effect.png)
 
 The second figure compares full inference with mask construction from cached
-network flows, including the public 3D volume. Whiskers are observed repeat ranges,
+network flows, for 2D images. The 3D volume is plotted separately below. Whiskers are observed repeat ranges,
 not confidence intervals. Shared GPU load makes small full-inference differences
 uncertain; the mask-stage speedup is shown separately.
 
-[Inference SVG](figures/sam_inference.svg) · [Inference PDF](figures/sam_inference.pdf) ·
-[Mask-stage SVG](figures/sam_mask_effect.svg) · [Mask-stage PDF](figures/sam_mask_effect.pdf)
+![Cellpose-SAM total inference for a 3D volume](figures/sam_3d_inference.png)
+
+![Cellpose-SAM 3D mask construction effect](figures/sam_3d_mask_effect.png)
+
+[Inference SVG](figures/sam_inference.svg) | [Inference PDF](figures/sam_inference.pdf) |
+[Mask-stage SVG](figures/sam_mask_effect.svg) | [Mask-stage PDF](figures/sam_mask_effect.pdf)
 
 Regenerate these figures with NumPy and Matplotlib installed:
 
@@ -166,3 +170,141 @@ Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
 These supplemental image files are not distributed. The initial Microscopy C
 `cpsam` mask-stage result was noisy and slower; the longer repeat measured a
 1.08x speedup. This is reported alongside the initial result.
+
+
+## Optional approximate fast mode
+
+`model.eval(image, fast=True)` and CLI `--fast` opt into FP16 network execution,
+GPU percentile normalization, bilinear resizing, tile extraction/averaging, and
+reusable pinned input buffers. The default tile batch size becomes 32; explicitly
+setting `batch_size=8` keeps that value. Flow QC (default threshold 0.4), the usual
+iteration count, and mask cleanup are retained. This mode **is not bitwise
+identical** and can change cell boundaries and counts. It is disabled by default.
+
+```python
+from cellpose import models
+model = models.CellposeModel(gpu=True, pretrained_model="cpsam_v2")
+masks, flows, styles = model.eval(image, fast=True)
+# Explicit batch size for GPUs with less memory:
+masks, flows, styles = model.eval(image, fast=True, batch_size=8)
+```
+
+```bash
+python -m cellpose --use_gpu --fast --image_path image.tif
+```
+
+Unaugmented CUDA 2D inference is supported. CPU/MPS, 3D, augmentation and stitching
+fall back to standard inference with a log message. Advanced normalization options
+retain the existing CPU normalization. Tiling uses the upstream coordinates and
+zero padding; the GPU implementation changes floating point arithmetic, rather
+than the tiling geometry. Both SAM checkpoints were exercised. Other backbones,
+other CUDA architectures and historical Torch versions were not tested with fast mode.
+
+A lazy FP16 parameter cache preserves the original model parameters and refreshes
+when weights change. It adds approximately 600 MB for SAM, plus tile/input buffers.
+Model calls must be sequential when using this cache. Larger batches increase peak
+memory. FP16 overflow raises an error requesting a rerun with `fast=False`.
+
+### Total-time and agreement results
+
+The figures below compare **full 2D inference** with unmodified main, the exact
+optimization, a standard bfloat16 batch-size control, and the optional FP16 preset.
+Default Cellpose-SAM already uses bfloat16; both formats are 16-bit. FP16 alone
+therefore does not imply faster transformer inference on this hardware.
+
+![Cellpose-SAM 2D inference options and agreement on public images](figures/sam_fast_inference.png)
+
+![Cellpose-SAM 2D inference options and agreement on larger supplemental images](figures/sam_fast_supplemental.png)
+
+Public small-image fast-mode speedups ranged from **0.95 to 1.04x**, including
+slowdowns. On the larger supplemental images the preset measured **1.04 to 1.06x**.
+The standard bfloat16 batch-32 control was faster than FP16 here, measuring roughly
+**1.15 to 1.19x** on the larger images; its mask bytes matched the reference in these
+cases. These results support evaluating batch size before changing precision.
+The shared GPU adds timing uncertainty; none of these measurements establishes a
+universal speedup. All measured cases are retained.
+
+IoU is agreement with standard inference, **not accuracy against manual labels**.
+Foreground IoU compares the union of all cell pixels. Object IoU uses one-to-one
+matching at IoU >= 0.5. Unmatched cells contribute zero to the reference/prediction
+mean IoU, so a high matched-only IoU cannot hide lost or additional cells. The
+plotted score is the smaller of those two means. Raw reports also include matched
+IoU, cell counts, foreground IoU, exact equality and missing/extra cells for every
+repeat. Label IDs are ignored by IoU, but byte equality checks include them.
+
+Median times in milliseconds; the following table reports the FP16 preset and its
+agreement score. Missing/extra counts are maxima across repeats.
+
+| Image | Checkpoint | Upstream | Fast FP16 | Speedup | Object agreement IoU | Foreground IoU | Missing / extra |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| gray_2D.png | cpsam_v2 | 616.3 | 644.7 | 0.96x | 0.9951 | 0.9965 | 0 / 0 |
+| rgb_2D.png | cpsam_v2 | 315.6 | 322.3 | 0.98x | 0.9975 | 0.9981 | 0 / 0 |
+| rgb_2D_tif.tif | cpsam_v2 | 326.0 | 325.2 | 1.00x | 0.9987 | 0.9988 | 0 / 0 |
+| gray_2D.png | cpsam | 612.6 | 643.5 | 0.95x | 0.9909 | 0.9958 | 0 / 1 |
+| rgb_2D.png | cpsam | 322.9 | 322.4 | 1.00x | 0.9971 | 0.9977 | 0 / 0 |
+| rgb_2D_tif.tif | cpsam | 329.9 | 317.9 | 1.04x | 0.9986 | 0.9990 | 0 / 0 |
+| Microscopy A | cpsam_v2 | 1505.3 | 1427.5 | 1.05x | 0.9977 | 0.9979 | 0 / 0 |
+| Microscopy B | cpsam_v2 | 1479.9 | 1411.2 | 1.05x | 0.9976 | 0.9978 | 0 / 0 |
+| Microscopy C | cpsam_v2 | 1458.8 | 1396.7 | 1.04x | 0.9942 | 0.9957 | 2 / 0 |
+| Microscopy A | cpsam | 1481.8 | 1427.6 | 1.04x | 0.9977 | 0.9980 | 0 / 0 |
+| Microscopy B | cpsam | 1459.4 | 1386.1 | 1.05x | 0.9973 | 0.9982 | 1 / 0 |
+| Microscopy C | cpsam | 1440.7 | 1353.1 | 1.06x | 0.9952 | 0.9965 | 1 / 0 |
+
+The public grayscale image at **cell diameter 15 pixels** exercises GPU resizing
+(the network input resolution is doubled). The preset measured **1.08x** for
+`cpsam_v2` (779.5 to 718.6 ms) and **1.07x** for `cpsam` (775.4 to 724.3 ms).
+Object IoU agreement was 0.9959 and 0.9969 respectively, with no missing/extra
+cells at the matching threshold. This is an inference scaling configuration,
+not a claim about the measured physical cell diameter.
+
+![Cellpose-SAM 2D inference with a 15-pixel cell diameter setting](figures/sam_fast_scaled.png)
+
+Across the 14 fast benchmark configurations, all 70 timed standard/exact calls
+matched unmodified-main masks, flows and styles, including calls after fast mode.
+Fast mode changed mask bytes in every configuration. These checks supplement the
+93 exact full-inference calls and 93 exact cached-flow mask calls reported above.
+
+The benchmark includes an additional FP16 batch-8 control in the raw JSON, so
+precision/GPU-processing effects can be distinguished from the larger default
+batch. All modes share the same loaded weights, input, QC and iteration settings.
+The reference loads `eval`, `_run_net` and the dynamics functions from the pinned
+unmodified main revision. Calls use rotating order, two warmups per mode and five
+synchronized repeats. The standard/exact mask, flow and style arrays are checked
+against the unmodified reference after fast-mode calls as well, guarding against
+state or weight changes leaking into standard inference.
+
+Timings exclude model loading, image decoding and the first FP16 cache creation.
+They represent repeated inference on an already loaded model. Reported peak CUDA
+allocations include the resident FP16 cache for all modes after warmup; they are
+not a measurement of incremental memory usage for each mode.
+
+Reproduce the fast benchmark and figures:
+
+```bash
+python -m pytest tests/test_fast_inference.py tests/test_fast_agreement.py \
+  tests/test_exact_dynamics.py tests/test_dynamics.py -q
+python benchmarks/benchmark_fast.py \
+  --images /tmp/cellpose-fixtures/data/2D/gray_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D_tif.tif \
+  --output /tmp/sam-fast-public.json
+python benchmarks/plot_fast.py --report /tmp/sam-fast-public.json \
+  --output-dir /tmp/sam-fast-figures
+# Exercise GPU input/output resizing with a 15-pixel requested cell diameter:
+python benchmarks/benchmark_fast.py --diameters 15 \
+  --images /tmp/cellpose-fixtures/data/2D/gray_2D.png \
+  --output /tmp/sam-fast-scaled.json
+```
+
+The focused test run passed **12 tests and 120 subtests**, including GPU tile
+coordinates, channel preservation, resizing, normalization/custom percentiles,
+constant channels, advanced-normalization routing, CLI defaults, fallback modes,
+list input, retained QC/iteration settings, cached parameter invalidation, original
+weight restoration after successful/failed forwards, and nonfinite-output errors.
+Agreement tests cover swapped labels, empty masks, and missed/extra cells.
+
+[Public raw results](results/fast-public.json) |
+[Supplemental raw results](results/fast-supplemental.json) |
+[Rescaled public raw results](results/fast-scaled.json) |
+[Public figure SVG](figures/sam_fast_inference.svg) |
+[Public figure PDF](figures/sam_fast_inference.pdf)
