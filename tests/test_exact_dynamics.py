@@ -4,6 +4,7 @@ These also run without pytest: python -m unittest discover -s tests
     -p test_exact_dynamics.py
 """
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -96,6 +97,11 @@ class ExactDynamicsTests(unittest.TestCase):
                     mask, _ = self.mask([(8, 8)], counts, (32, 40), device, fraction)
                     self.assertFalse(mask.any())
                     self.assertEqual(mask.dtype, np.uint16)
+
+    def test_without_scatter_reduce(self):
+        with patch.object(torch.Tensor, "scatter_reduce_", None):
+            self.test_equal_height_overlapping_seeds()
+            self.test_seeds_at_image_boundaries()
 
 
 if __name__ == "__main__":

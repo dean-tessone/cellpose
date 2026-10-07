@@ -781,8 +781,11 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     # Histogram padding keeps each seed's 11-pixel window inside the array.
     # Gather all windows together instead of synchronizing CUDA scalars to
     # construct a Python slice for every seed and axis.
-    offsets = torch.meshgrid(
-        *[torch.arange(-5, 6, device=device)] * ndim, indexing="ij")
+    axes = [torch.arange(-5, 6, device=device)] * ndim
+    try:
+        offsets = torch.meshgrid(*axes, indexing="ij")
+    except TypeError:  # PyTorch releases before the indexing keyword
+        offsets = torch.meshgrid(*axes)
     flat_offsets = offsets[0]
     seed_offsets = seeds1[:, 0]
     for j in range(1, ndim):
@@ -818,8 +821,12 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
         flat_inds = flat_inds * shape[j] + positions[:, j]
     # The original loop writes seeds in ascending order. Where windows
     # overlap, the last (largest) label wins, including equal-height peaks.
-    M1.scatter_reduce_(0, flat_inds, (seed_idx + 1).to(dtype),
-                       reduce="amax", include_self=True)
+    if callable(getattr(M1, "scatter_reduce_", None)):
+        M1.scatter_reduce_(0, flat_inds, (seed_idx + 1).to(dtype),
+                           reduce="amax", include_self=True)
+    else:  # retain compatibility with PyTorch releases before scatter_reduce_
+        for k in range(n_seeds):
+            M1[flat_inds[seed_idx == k]] = k + 1
     M1 = M1.reshape(shape)
     del seed_masks, active, positions
 
