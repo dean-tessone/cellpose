@@ -59,15 +59,26 @@ def digest(array):
     return hashlib.sha256(np.ascontiguousarray(array).tobytes()).hexdigest()
 
 
+def arrays_exact(a, b):
+    return a.shape == b.shape and a.dtype == b.dtype and a.tobytes() == b.tobytes()
+
+
 def comparison(ref, pred):
     same_shape = ref.shape == pred.shape
+    values_equal = bool(same_shape and np.array_equal(ref, pred))
     partition_equal = False
     if same_shape:
-        pairs = np.unique(np.stack([ref.ravel(), pred.ravel()], axis=1), axis=0)
-        partition_equal = (len(pairs) == len(np.unique(ref)) == len(np.unique(pred))
-                           and np.all((pairs[:, 0] == 0) == (pairs[:, 1] == 0)))
-    return {"exact": bool(same_shape and ref.dtype == pred.dtype and
-                           ref.tobytes() == pred.tobytes()),
+        if values_equal:
+            partition_equal = True
+        else:
+            # Cellpose label IDs fit uint32. Encoding pairs avoids sorting a
+            # structured array of every pixel for this untimed diagnostic.
+            pairs = np.unique((ref.astype(np.uint64).ravel() << np.uint64(32)) |
+                              pred.astype(np.uint64).ravel())
+            ref_ids, pred_ids = pairs >> np.uint64(32), pairs & np.uint64(0xffffffff)
+            partition_equal = (len(pairs) == len(np.unique(ref_ids)) == len(np.unique(pred_ids))
+                               and np.all((ref_ids == 0) == (pred_ids == 0)))
+    return {"exact": bool(arrays_exact(ref, pred)),
             "partition_equal_ignoring_label_ids": bool(partition_equal),
             "foreground_changed_pixels": int(np.count_nonzero((ref > 0) != (pred > 0)))
             if same_shape else None,
@@ -168,8 +179,8 @@ def main():
                         row["masks_exact_all_repeats"] &= cmp["exact"]
                         row["mask_comparison"] = cmp
                         row["flows_exact_all_repeats"] &= all(
-                            np.array_equal(a, b) for a, b in zip(baseline[1], output[1]))
-                        row["styles_exact_all_repeats"] &= np.array_equal(baseline[2], output[2])
+                            arrays_exact(a, b) for a, b in zip(baseline[1], output[1]))
+                        row["styles_exact_all_repeats"] &= arrays_exact(baseline[2], output[2])
             row["speedup"] = statistics.median(row["reference_seconds"]) / statistics.median(row["candidate_seconds"])
             all_exact &= (row["reference_stable"] and row["masks_exact_all_repeats"] and
                           row["flows_exact_all_repeats"] and row["styles_exact_all_repeats"])

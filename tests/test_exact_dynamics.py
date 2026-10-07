@@ -58,7 +58,10 @@ class ExactDynamicsTests(unittest.TestCase):
                                 inds = tuple(rng.integers(0, size, npoints) for size in shape)
                                 expected = coordinate_reference(flow, inds, niter, device)
                                 actual = dynamics.steps_interp(flow, inds, niter, device)
-                                self.assertTrue(torch.equal(expected, actual))
+                                self.assertEqual(expected.shape, actual.shape)
+                                self.assertEqual(expected.dtype, actual.dtype)
+                                self.assertEqual(expected.cpu().numpy().tobytes(),
+                                                 actual.cpu().numpy().tobytes())
 
     def mask(self, endpoints, counts, shape, device, fraction=.4):
         points = np.concatenate([np.repeat(np.array(p)[:, None], n, axis=1)
