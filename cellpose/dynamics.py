@@ -368,9 +368,10 @@ def steps_interp(dP, inds, niter, device=torch.device("cpu")):
     # dynamics
     for t in range(niter):
         dPt = torch.nn.functional.grid_sample(im, pt, align_corners=False)
-        for k in range(ndim):  #clamp the final pixel locations
-            pt[..., k] += dPt[:, k]
-            torch.clamp_(pt[..., k], -1., 1.)
+        # Put sampled coordinates on the last axis so all coordinates can
+        # be updated together, preserving the separate FP32 add and clamp.
+        pt.add_(dPt.movedim(1, -1))
+        pt.clamp_(-1., 1.)
 
     #undo the normalization from before, reverse order of operations
     pt += 1 
@@ -578,9 +579,11 @@ def get_masks_torch(pt, inds, shape0, rpad=20, max_size_fraction=0.4):
     else:
         seed_masks[:,5,5,5] = 1
     
+    pool = F.max_pool2d if ndim == 2 else F.max_pool3d
     for iter in range(5):
-        # extend
-        seed_masks = max_pool_nd(seed_masks, kernel_size=3)
+        # Binary masks have identical boundary maxima under native pooling.
+        seed_masks = pool(seed_masks.unsqueeze(1), kernel_size=3,
+                          stride=1, padding=1).squeeze(1)
         seed_masks *= h_slc > 2
     del h_slc 
     
