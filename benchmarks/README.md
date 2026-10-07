@@ -1,5 +1,11 @@
 # Cellpose 3 inference benchmarks
 
+| Figure | What it shows |
+| --- | --- |
+| [Full inference time](figures/cyto3_inference.png) | Measured latency and speedup |
+| [Identical cell masks](figures/cyto3_identical_masks.png) | Input, upstream masks, optimized masks and pixel differences |
+| [Mask IoU and byte equality](figures/cyto3_mask_iou.png) | Cell/foreground IoU = 1.0000 and zero changed labels across six public cases |
+
 For Cellpose-SAM **3D timing plots and standalone IoU plots**, see the
 [SAM figure gallery on the fast-sam-inference branch](https://github.com/dean-tessone/cellpose/blob/fast-sam-inference/benchmarks/figures/README.md).
 This branch contains the cyto3 2D inference measurements.
@@ -89,6 +95,42 @@ python benchmarks/plot_benchmarks.py --kind cyto3 \
   --report benchmarks/results/public-rtx-pro-6000.json \
   --output-dir benchmarks/figures
 ```
+
+## Visual mask equality
+
+![Upstream and optimized cell masks with label difference maps](figures/cyto3_identical_masks.png)
+
+The three public 2D inputs are shown with the same cell colors in each output.
+The difference maps compare every label pixel, including background and label
+IDs. Every map contains zero differences. The displayed masks were recomputed
+from both implementations and match the mask SHA256 hashes in the published
+speed report. Mask, flow and style shapes/dtypes/bytes also match each other.
+
+![Cell and foreground IoU alongside byte equality](figures/cyto3_mask_iou.png)
+
+All six public image/diameter cases have cell IoU and foreground IoU of 1.0000.
+IoU measures agreement with upstream inference, rather than manual-label
+accuracy. Byte equality is checked separately because IoU alone would not
+detect changed label IDs. The figure uses one newly computed pair per case;
+the original benchmark checks all five timed candidate repeats per case.
+
+[Mask overlays SVG](figures/cyto3_identical_masks.svg) | [PDF](figures/cyto3_identical_masks.pdf) |
+[IoU/equality SVG](figures/cyto3_mask_iou.svg) | [PDF](figures/cyto3_mask_iou.pdf) |
+[Equality data and mask hashes](figures/cyto3_mask_equality.json)
+
+Reproduce these figures using the public benchmark report generated above:
+
+```bash
+python benchmarks/plot_exact_masks.py --report /tmp/cyto3-public.json \
+  --images /tmp/cellpose-fixtures/data/2D/gray_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D.png \
+           /tmp/cellpose-fixtures/data/2D/rgb_2D_tif.tif \
+  --output-dir /tmp/cyto3-mask-figures
+```
+
+The script checks weights, inputs and mask hashes against the supplied report
+and stops if equality or provenance checks fail. The default report is the
+committed public RTX PRO 6000 report used for the figures in this branch.
 
 Measured medians in milliseconds (all candidate masks exact in all five repeats):
 
