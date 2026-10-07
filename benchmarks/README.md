@@ -15,15 +15,9 @@ The runtime patch changes two operations in `cellpose/dynamics.py`:
 The histogram pooling, seed ordering, seed gathering, maximum scatter, mask
 quality control, hole filling, label renumbering, normalization, resizing,
 network weights and network precision retain upstream behavior. Current main
-already includes vectorized seed gathering and maximum scatter, so this PR adds
-the two remaining dynamics optimizations from the cyto3 work. It adds no runtime
-dependency or inference option.
-
-The original BLUE FastCellpose wrapper changes segmentation through additional
-preprocessing, tile placement, endpoint rounding, precision and cleanup changes.
-Those changes cannot support an exact-mask claim and are excluded from this port.
-The cyto3 speedups should not be extrapolated to SAM: main already has several
-optimizations, and SAM spends much of its inference time in the transformer.
+already includes vectorized seed gathering and maximum scatter. This change
+reduces additional coordinate and pooling overhead with no new runtime dependency
+or inference option.
 
 Validation passed for both `cpsam` and main's default `cpsam_v2`, using upstream's
 default bfloat16 network weights. It also passed for FP32, diameter 15 rescaling,
@@ -102,7 +96,7 @@ It excludes network inference. Every timed result is checked after the timer.
 Default settings are two warmups per implementation and image, five synchronized
 repeats with alternating reference/candidate order, tile batch size 8, native
 diameter (`None`), tile overlap 0.1, resampling enabled, flow threshold 0.4, and
-minimum mask size 15. The 3D case uses one warmup and three repeats. A noisy local
+minimum mask size 15. The 3D case uses one warmup and three repeats. A noisy supplemental microscopy
 case was additionally measured with 15 repeats; both the initial and repeated
 measurements are reported. No cases failing a speed threshold were discarded.
 
@@ -115,9 +109,35 @@ samples and environment flags are included in `results/` for the public inputs.
 
 On the default public 2D fixtures, the measured mask-stage improvement was
 **1.13–1.28x**. The 3D case's mask stage improved **1.55x** (39.3 to 25.3 ms), while
-its full inference time stayed around 3.18 seconds. Larger local images showed
+its full inference time stayed around 3.18 seconds. Larger supplemental microscopy images showed
 small overall timing differences. This supports a mask dynamics optimization;
 it does not demonstrate a large SAM network or full-inference speedup.
+
+PR figures (public test fixtures):
+
+![SAM total inference latency and speedup](figures/sam_inference.png)
+
+The left panel shows median full-inference latency and the change in milliseconds.
+The right panel shows the ratio of median reference time to median optimized time.
+
+![SAM mask construction and total inference effects](figures/sam_mask_effect.png)
+
+The second figure compares full inference with mask construction from cached
+network flows, including the public 3D volume. Whiskers are observed repeat ranges,
+not confidence intervals. Shared GPU load makes small full-inference differences
+uncertain; the mask-stage speedup is shown separately.
+
+[Inference SVG](figures/sam_inference.svg) · [Inference PDF](figures/sam_inference.pdf) ·
+[Mask-stage SVG](figures/sam_mask_effect.svg) · [Mask-stage PDF](figures/sam_mask_effect.pdf)
+
+Regenerate these figures with NumPy and Matplotlib installed:
+
+```bash
+python benchmarks/plot_benchmarks.py --kind sam \
+  --report benchmarks/results/public.json \
+  --volume-report benchmarks/results/public-3d.json \
+  --output-dir benchmarks/figures
+```
 
 Median latencies in milliseconds. All candidate masks, flows and styles matched
 the reference bytes in every timed repeat.
@@ -130,19 +150,19 @@ the reference bytes in every timed repeat.
 | gray_2D.png | cpsam | 306.6 | 314.8 | 72.3 | 61.4 | 1.18x |
 | rgb_2D.png | cpsam | 168.2 | 163.4 | 67.5 | 52.7 | 1.28x |
 | rgb_2D_tif.tif | cpsam | 159.7 | 153.0 | 54.8 | 45.3 | 1.21x |
-| local-1 | cpsam_v2 | 828.8 | 819.9 | 148.8 | 139.8 | 1.06x |
-| local-2 | cpsam_v2 | 814.0 | 803.0 | 146.7 | 142.9 | 1.03x |
-| local-3 | cpsam_v2 | 766.4 | 776.3 | 111.2 | 103.1 | 1.08x |
-| local-1 | cpsam | 771.2 | 783.7 | 145.0 | 141.1 | 1.03x |
-| local-2 | cpsam | 806.9 | 810.0 | 152.7 | 146.3 | 1.04x |
-| local-3 | cpsam | 765.9 | 756.6 | 107.0 | 114.6 | 0.93x |
+| Microscopy A | cpsam_v2 | 828.8 | 819.9 | 148.8 | 139.8 | 1.06x |
+| Microscopy B | cpsam_v2 | 814.0 | 803.0 | 146.7 | 142.9 | 1.03x |
+| Microscopy C | cpsam_v2 | 766.4 | 776.3 | 111.2 | 103.1 | 1.08x |
+| Microscopy A | cpsam | 771.2 | 783.7 | 145.0 | 141.1 | 1.03x |
+| Microscopy B | cpsam | 806.9 | 810.0 | 152.7 | 146.3 | 1.04x |
+| Microscopy C | cpsam | 765.9 | 756.6 | 107.0 | 114.6 | 0.93x |
 | gray_2D.png (diameter 15) | cpsam_v2 | 853.6 | 859.5 | 71.8 | 67.2 | 1.07x |
 | gray_2D.png (diameter 15) | cpsam | 878.2 | 889.2 | 69.0 | 63.3 | 1.09x |
 | rgb_2D.png (FP32) | cpsam_v2 | 205.9 | 202.4 | 58.4 | 49.5 | 1.18x |
 | gray_3D.tif (3D) | cpsam_v2 | 3178.6 | 3174.9 | 39.3 | 25.3 | 1.55x |
-| local-3 (15 repeats) | cpsam | 646.9 | 645.1 | 105.7 | 97.5 | 1.08x |
+| Microscopy C (15 repeats) | cpsam | 646.9 | 645.1 | 105.7 | 97.5 | 1.08x |
 
-The local inputs are three 1004 x 1362 uint16 RGB microscopy images. Their raw
-images and detailed reports remain in the local workspace. The initial local-3
+Supplemental inputs were three 1004 x 1362 uint16 RGB microscopy images.
+These supplemental image files are not distributed. The initial Microscopy C
 `cpsam` mask-stage result was noisy and slower; the longer repeat measured a
 1.08x speedup. This is reported alongside the initial result.
